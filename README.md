@@ -67,7 +67,7 @@ If you use or modify this dashboard, **please cite**:
 
 ## License
 
-MIT License (see [LICENSE](LICENSE) for details).  
+MIT License (see [LICENSE](https://opensource.org/license/mit) for details).  
 Feel free to use, modify, and extend for non-commercial research purposes.
 
 ---
