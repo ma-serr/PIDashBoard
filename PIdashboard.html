@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Serrano Lab | PI Progress Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://fonts.googleapis.com/css?family=Inter:400,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --blue1: #1F74AF;
+      --blue2: #45C5E2;
+      --orange1: #E05928;
+      --orange2: #F78E28;
+      --white: #fff;
+      --greybg: #f8fafd;
+      --grey: #e9eef3;
+      --shadow: 0 2px 18px 0 rgba(31,116,175,0.08),0 2.5px 15px 0 rgba(224,89,40,0.04);
+    }
+    body { font-family: "Inter", Arial, sans-serif; background: var(--greybg); color: #213243; margin:0 0 4em;}
+    #header { display:flex; align-items:center; background:var(--white); padding:2em 1.5em 1em 2em; box-shadow:var(--shadow); margin-bottom:2em;}
+    #logo {height:60px; width:60px; margin-right:1.2em;}
+    #brand { font-size:2.1em; color:var(--blue1); font-weight:500; }
+    .instructions { background:var(--white); color:var(--blue1); border-left:7px solid var(--blue2);
+                    border-radius:10px; box-shadow:var(--shadow); padding:1.3em 2em; margin:2em auto 1.5em; max-width:760px; }
+    #uploader-wrap { background:var(--white); border-radius:11px; box-shadow:var(--shadow);
+                     max-width:760px; margin:0 auto 2em; padding:2em; display:flex; flex-direction:column; align-items:center;}
+    #csv-upload { border:2.2px dashed var(--blue1); padding:1.8em 2em; border-radius:10px;
+                   background:var(--greybg); color:var(--blue1); font-weight:500; font-size:1.12em;
+                   margin-bottom:1.5em; text-align:center; cursor:pointer; transition:border-color .2s;}
+    #csv-upload.dragover { border-color:var(--orange1); background:#e6f7ff; color:var(--orange1);}
+    .dashboard-controls { display:flex; flex-wrap:wrap; gap:1.3em; justify-content:center; margin:2em 0;}
+    .main-btn { background:var(--blue1); color:#fff; border:none; border-radius:7px;
+                font-size:1.05em; font-weight:600; padding:.5em 2em; box-shadow:0 1px 2px #1f74af18;
+                cursor:pointer; transition:background .14s;}
+    .main-btn:hover { background:var(--orange1); }
+    select { font-size:1.06em; padding:.4em 1em; border-radius:6px; border:1px solid #e3e3e3;
+             background:#fafdff; color:var(--blue1); }
+    .summary-cards { display:flex; flex-wrap:wrap; gap:2em; justify-content:center; margin-bottom:2.5em;}
+    .card { background:var(--white); border-radius:15px; box-shadow:var(--shadow);
+             padding:2em; min-width:270px; max-width:370px; margin:.6em .5em; display:flex;
+             flex-direction:column; transition:box-shadow .2s; cursor:pointer; border:2px solid transparent;}
+    .card.risk { border-color:var(--orange1); }
+    .card-title { font-size:1.15em; font-weight:700; margin-bottom:.5em; color:var(--blue1); }
+    .progress-num { font-size:2em; font-weight:700; margin-bottom:.35em; }
+    .progress-bar-wrap { width:100%; background:#e9eef3; border-radius:7px; height:17px;
+                         box-shadow:0 1px 3px #1f74af12; margin:.23em 0 1.25em; }
+    .progress-bar { height:17px; border-radius:7px; transition:width .2s; }
+    .area-progress { font-size:1.03em; font-weight:500; color:var(--blue1); margin-bottom:.13em; }
+    .area-progress-bar-wrap { width:99%; background:#f5fbfd; border-radius:6px; height:11px; margin:.10em 0 .58em;}
+    .area-progress-bar { height:11px; border-radius:6px; transition:width .2s; }
+    .card-meta { font-size:.96em; font-weight:600; margin-top:.45em; }
+    .last-update { font-size:.98em; color:#789; margin:.5em 0; }
+    #agg-cards { display:flex; flex-wrap:wrap; gap:1.7em; justify-content:center; margin:2em 0 2.2em;}
+    .agg-card { background:var(--white); border-radius:13px; box-shadow:var(--shadow);
+                padding:1.3em 2em; min-width:200px; margin-bottom:1em; font-size:1.08em; }
+    .agg-title { font-size:1.05em; font-weight:600; color:var(--blue2); }
+    .agg-value { font-size:2em; font-weight:700; color:var(--orange1); }
+    .heatmap { margin:2em auto; max-width:750px; }
+    .heatmap th, .heatmap td { border:1px solid #e9eef3; padding:.5em; text-align:center; }
+    .heatmap th { background:#f6fafb; color:var(--blue1); }
+    .heatmap tr:nth-child(even) { background:#fafdff; }
+    @media(max-width:900px){ .summary-cards{flex-direction:column;align-items:center;} }
+  </style>
+</head>
+<body>
+
+  <div id="header">
+    <img src="logo.png" id="logo" alt="Serrano Lab logo">
+    <span id="brand">Serrano Lab | PI Dashboard</span>
+  </div>
+
+  <div class="instructions">
+    <ol>
+      <li>Download CSVs from trainees via the Training Matrix tool.</li>
+      <li>Drop them here (HTTPS only) or click to select.</li>
+      <li>Filter by level or area, then export or print as needed.</li>
+    </ol>
+  </div>
+
+  <div id="uploader-wrap">
+    <label id="csv-upload">
+      <span>Drop trainee CSVs here,<br>or <b>click to select</b>.</span>
+      <input type="file" id="file-input" accept=".csv" multiple style="display:none;">
+    </label>
+  </div>
+
+  <div class="dashboard-controls">
+    <label for="level-filter">Trainee Level:</label>
+    <select id="level-filter">
+      <option value="all">All Levels</option>
+      <option value="ug">Undergrad</option>
+      <option value="phd">PhD</option>
+      <option value="postdoc">Post-doc</option>
+      <option value="staff">Staff</option>
+    </select>
+
+    <label for="area-filter">Show Area:</label>
+    <select id="area-filter">
+      <option value="all">All Areas</option>
+      <option value="Core Lab Practices (Everyone)">Core Lab Practices (Everyone)</option>
+      <option value="Personal & Professional Development">Personal & Professional Development</option>
+      <option value="Technical & Research Skills">Technical & Research Skills</option>
+      <option value="Scientific Communication & Patient Engagement">Scientific Communication & Patient Engagement</option>
+      <option value="Academic & Clinical Training">Academic & Clinical Training</option>
+      <option value="Progress Monitoring & Feedback">Progress Monitoring & Feedback</option>
+      <option value="Laboratory Operations & Technical Staff Development">
+        Laboratory Operations & Technical Staff Development
+      </option>
+    </select>
+
+    <button class="main-btn" id="export-csv">Download Group CSV</button>
+    <button class="main-btn" id="export-pdf">Download PDF</button>
+  </div>
+
+  <div id="agg-cards"></div>
+  <div class="summary-cards" id="trainee-cards"></div>
+  <div id="heatmap-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // cache for send/export
+    let cachedGroupCSV = "";
+
+    // pull CSS vars into JS
+    const style = getComputedStyle(document.documentElement);
+    const blue1   = style.getPropertyValue('--blue1').trim();
+    const blue2   = style.getPropertyValue('--blue2').trim();
+    const orange1 = style.getPropertyValue('--orange1').trim();
+
+    // utils
+    function csvToArray(str) {
+      return str.trim().split(/\r?\n/).map(r=>
+        r.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g).map(x=>x.replace(/^"|"$/g,""))
+      );
+    }
+    function formatDate(ts) {
+      const d = new Date(+ts);
+      return d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+    }
+
+    // state
+    let currentTrainees = [], lastLoadedCSVs = [], lastEditMap = {};
+
+    // handle files
+    const upload = document.getElementById('csv-upload');
+    const input  = document.getElementById('file-input');
+    upload.onclick = ()=> input.click();
+    upload.addEventListener('dragover',e=>{ e.preventDefault(); upload.classList.add('dragover'); });
+    upload.addEventListener('dragleave',e=>{ upload.classList.remove('dragover'); });
+    upload.addEventListener('drop',e=>{
+      e.preventDefault(); upload.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+    input.onchange = ()=> handleFiles(input.files);
+
+    function handleFiles(files) {
+      lastLoadedCSVs = [];
+      lastEditMap    = {};
+      const reads = Array.from(files).map(f=>new Promise(res=>{
+        const r = new FileReader();
+        r.onload = e=>{
+          const ts = Date.now();
+          localStorage.setItem('serrano_lastedit_'+f.name, ts);
+          lastEditMap[f.name] = ts;
+          res({ name:f.name, csv:e.target.result, ts });
+        };
+        r.readAsText(f);
+      }));
+      Promise.all(reads).then(arr=>{
+        currentTrainees = arr.map(o=>parseCSV(o.csv, o.name, o.ts));
+        lastLoadedCSVs  = arr;
+        renderDashboard();
+      });
+    }
+
+    function parseCSV(text, filename, ts) {
+      const A = csvToArray(text);
+      let version = '1.0';
+      if (A[0][0].startsWith('#MatrixVersion=')) {
+        version = A.shift()[0].split('=')[1];
+      }
+      if (version!=='1.1') {
+        alert(`Unexpected CSV version ${version}. Expected 1.1`);
+      }
+      const header = A.shift();
+      const data   = A;
+      const name   = filename.replace(/\.[^.]+$/, '').replace(/[_-]+/g,' ');
+      const level  = data[0][0];
+      let total=0, done=0, byArea={}, skills=[];
+      data.forEach(r=>{
+        const [lvl, area, topic, skill, status, evidence, notes, ...yrs] = r;
+        const count   = yrs.length;
+        const checked = yrs.filter(x=>'✔'===x).length;
+        const extra   = status==='Complete'? count-checked : 0;
+        total += count;
+        done  += checked + extra;
+        byArea[area] = byArea[area]||{done:0,total:0};
+        byArea[area].done  += checked + extra;
+        byArea[area].total += count;
+        skills.push({ area, topic, skill, status, evidence, notes, yrs });
+      });
+      return {
+        name, level,
+        percent: Math.round(done/total*100)||0,
+        byArea, skills,
+        lastEdit: lastEditMap[filename]||'',
+      };
+    }
+
+    // rendering
+    function createCard(tr, area=null) {
+      const pct = area && tr.byArea[area]
+                  ? Math.round(tr.byArea[area].done/tr.byArea[area].total*100)
+                  : tr.percent;
+      const card = document.createElement('div');
+      card.className = `card${pct<40?' risk':''}`;
+      card.innerHTML = `
+        <div class="card-title">
+          ${tr.name} <small style="color:#666">[${tr.level}]</small>
+        </div>
+        <div class="progress-num" style="color:${orange1}">${pct}%</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" style="width:${pct}%; background:${blue2}"></div>
+        </div>
+        <div class="last-update">
+          Last updated: ${tr.lastEdit?formatDate(tr.lastEdit):'Unknown'}
+        </div>
+        <div>${(area?[area]:Object.keys(tr.byArea)).map(a=>`
+          <div class="area-progress">${a}
+            <div class="area-progress-bar-wrap">
+              <div class="area-progress-bar"
+                style="width:${Math.round(tr.byArea[a].done/tr.byArea[a].total*100)}%; background:${blue1}">
+              </div>
+            </div>
+          </div>`).join('')}
+        </div>
+        <div class="card-meta">${pct<40?'At Risk':''}</div>
+      `;
+      return card;
+    }
+
+    function showCards(arr, area=null) {
+      const container = document.getElementById('trainee-cards');
+      container.innerHTML = '';
+      arr.forEach(tr=>container.appendChild(createCard(tr,area)));
+    }
+
+    function showAggCards(arr, area=null) {
+      const container = document.getElementById('agg-cards');
+      if (!arr.length) return container.innerHTML='';
+      const vals = arr.map(tr=>{
+        if(area) {
+          const a = tr.byArea[area];
+          return Math.round(a.done/a.total*100);
+        }
+        return tr.percent;
+      });
+      const mean = Math.round(vals.reduce((s,v)=>s+v,0)/vals.length);
+      const mx   = Math.max(...vals), mn = Math.min(...vals);
+      container.innerHTML = `
+        <div class="agg-card">
+          <div class="agg-title">Lab Average${area?' ('+area+')':''}</div>
+          <div class="agg-value">${mean}%</div>
+        </div>
+        <div class="agg-card">
+          <div class="agg-title">Best</div>
+          <div class="agg-value">${mx}%</div>
+        </div>
+        <div class="agg-card">
+          <div class="agg-title">Least Complete</div>
+          <div class="agg-value">${mn}%</div>
+        </div>
+        <div class="agg-card">
+          <div class="agg-title">Trainees</div>
+          <div class="agg-value">${arr.length}</div>
+        </div>`;
+    }
+
+    function showHeatmap(arr) {
+      const keys = [];
+      arr.forEach(tr=>tr.skills.forEach(s=>{
+        if(!keys.find(k=>k.area===s.area&&k.topic===s.topic&&k.skill===s.skill))
+          keys.push(s);
+      }));
+      let html = `<table class="heatmap"><thead><tr><th>Skill</th>`;
+      arr.forEach(t=> html+=`<th>${t.name}</th>`);
+      html+=`</tr></thead><tbody>`;
+      keys.forEach(s=>{
+        html+=`<tr><td>${s.area}<br>${s.topic}<br><b>${s.skill}</b></td>`;
+        arr.forEach(t=>{
+          const match = t.skills.find(x=>x.area===s.area&&x.topic===s.topic&&x.skill===s.skill);
+          const pct   = match? match.yrs.filter(y=>'✔'===y).length/match.yrs.length : 0;
+          const col   = pct>=1?blue2:pct>=.5?blue1:pct>0?'#e4f3fa':'#eee';
+          html+=`<td class="heat-cell" style="background:${col}">${Math.round(pct*100)}%</td>`;
+        });
+        html+=`</tr>`;
+      });
+      html+=`</tbody></table>`;
+      document.getElementById('heatmap-container').innerHTML = html;
+    }
+
+    // main render
+    function renderDashboard() {
+      const area  = document.getElementById('area-filter').value;
+      const level = document.getElementById('level-filter').value;
+      const filtered = currentTrainees.filter(t=>
+        (level==='all'||t.level===level) &&
+        (area==='all'||t.byArea[area])
+      );
+      showCards(filtered, area!=='all'?area:null);
+      showAggCards(filtered, area!=='all'?area:null);
+      showHeatmap(filtered);
+      buildGroupCSV(filtered, area, level);
+    }
+
+    // build & cache CSV for export/send
+    function buildGroupCSV(arr, area, level) {
+      const header = ['Trainee','Level','Area','Topic','Skill','Status','Evidence','Notes','ProgressYears'];
+      const rows = [header];
+      arr.forEach((t,i)=>{
+        const raw = csvToArray(lastLoadedCSVs[i].csv);
+        const skip = raw[0][0].startsWith('#MatrixVersion=')?2:1;
+        for(let r=skip;r<raw.length;r++){
+          const row = raw[r];
+          if(level!=='all' && row[0]!==level) continue;
+          if(area!=='all' && row[1]!==area) continue;
+          rows.push([
+            t.name, row[0], row[1], row[2], row[3],
+            row[4], row[5], row[6],
+            row.slice(7).join('|')
+          ]);
+        }
+      });
+      const csv = rows.map(r=>r.map(c=>`"${c.replace(/"/g,'""')}"`).join(',')).join('\n');
+      cachedGroupCSV = csv;
+    }
+
+    // events
+    document.getElementById('file-input').addEventListener('change', ()=>handleFiles(input.files));
+    document.getElementById('area-filter').addEventListener('change', renderDashboard);
+    document.getElementById('level-filter').addEventListener('change', renderDashboard);
+    document.getElementById('export-csv').onclick = ()=>{
+      if(!cachedGroupCSV) return alert('No data to export');
+      const blob = new Blob([cachedGroupCSV],{type:'text/csv'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `serrano_lab_aggregate_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    };
+    document.getElementById('export-pdf').onclick = ()=>window.print();
+
+  </script>
+</body>
+</html>
